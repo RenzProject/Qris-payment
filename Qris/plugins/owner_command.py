@@ -53,6 +53,7 @@ async def cmd_help(c, m):
     text = """
 <b>📚 BANTUAN PERINTAH</b>
 
+<blockquote>
 <b>💳 AKSES PREMIUM (OWNER)</b>
 <code>/akses user_id fee</code> - Tambah akses premium
 <code>/delakses user_id</code> - Hapus akses premium
@@ -65,6 +66,7 @@ async def cmd_help(c, m):
 <b>⚙️ LAINNYA</b>
 <code>/ping</code> - Cek ping dan uptime bot
 <code>/help</code> - Menampilkan bantuan ini
+</blockquote>
 """
     await m.reply(text)
 
