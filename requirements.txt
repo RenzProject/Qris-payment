@@ -1,0 +1,8 @@
+python-dotenv
+hydrogram
+TgCrypto
+aiosqlite
+aioshutil
+aiohttp
+psutil
+qrcode[pil]
