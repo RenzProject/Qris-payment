@@ -1,0 +1,19 @@
+# Python / Virtual Environment
+__pycache__/
+
+# Environment & Sensitif
+.env
+
+# Database (Folder data & root)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Sesi Login Bot (Hydrogram/Pyrogram)
+*.session
+*.session-shm
+*.session-wal
+
+# Folder Temporary Backup
+output/
