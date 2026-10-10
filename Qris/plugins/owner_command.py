@@ -48,6 +48,26 @@ async def canceled(bt, callback_query, text):
         return True
     return False
 
+@bot.on_message(filters.command("help"))
+async def cmd_help(c, m):
+    text = """
+<b>📚 BANTUAN PERINTAH</b>
+
+<b>💳 AKSES PREMIUM (OWNER)</b>
+<code>/akses user_id fee</code> - Tambah akses premium
+<code>/delakses user_id</code> - Hapus akses premium
+<code>/listakses</code> - Lihat daftar akses premium
+
+<b>💰 MANAJEMEN SALDO (USER)</b>
+<code>/saldo</code> - Cek saldo pengguna
+<code>/resetsaldo</code> - Reset saldo pengguna
+
+<b>⚙️ LAINNYA</b>
+<code>/ping</code> - Cek ping dan uptime bot
+<code>/help</code> - Menampilkan bantuan ini
+"""
+    await m.reply(text)
+
 @bot.on_message(filters.command("ping"))
 async def cmd_ping(c, m):
     user_id = m.from_user.id
