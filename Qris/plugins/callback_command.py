@@ -59,7 +59,7 @@ async def cb_gen_qris(c, q):
         "amount": nominal,
         "useUniqueCode": True,
         "packageIds": ["id.dana"],
-        "expiredInMinutes": 10,
+        "expiredInMinutes": 60,
         "qrType": "dynamic",
         "paymentMethod": "qris",
         "useQris": True,
@@ -107,7 +107,7 @@ async def cb_gen_qris(c, q):
 • Nominal: Rp{nominal:,}
 • Total Bayar: Rp{total_amount:,}
 • Status: ⏳ pending
-• Kedaluwarsa: 10 menit
+• Kedaluwarsa: 60 menit
 
 <b>Silakan scan QRIS di atas untuk melakukan pembayaran.</b>
 """.replace(",", ".")

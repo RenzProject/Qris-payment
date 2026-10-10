@@ -52,7 +52,7 @@ async def cmd_qris(c, m):
         "amount": nominal,
         "useUniqueCode": True,
         "packageIds": ["id.dana"],
-        "expiredInMinutes": 10,
+        "expiredInMinutes": 60,
         "qrType": "dynamic",
         "paymentMethod": "qris",
         "useQris": True,
@@ -91,7 +91,7 @@ async def cmd_qris(c, m):
 • Nominal : Rp{nominal:,}
 • Total Bayar : Rp{total_amount:,}
 • Status : ⏳ pending
-• Expired : 10 menit
+• Expired : 60 menit
 
 <b>Silakan scan QRIS di atas untuk melakukan pembayaran.</b>
 """.replace(",", ".")
