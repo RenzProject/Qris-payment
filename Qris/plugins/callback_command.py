@@ -226,13 +226,13 @@ Kamu belum memiliki riwayat transaksi.
     for idx, trx in enumerate(transactions, start=1):
         status = trx["status"].upper()
 
-        msg += f"""<blockquote>
-<b>🧾 Transaksi #{idx} • {status}</b>
+        msg += f"""<blockquote><b>🧾 Transaksi #{idx} • {status}</b>
 
 🆔 ID: <code>{trx['transaction_id']}</code>
 💰 Nominal: <b>Rp{trx['amount']:,}</b>
 📅 Tanggal: <code>{trx['updated_at']}</code>
-</blockquote>\n"""
+</blockquote>\n
+"""
 
     await q.edit_message_text(
         text=msg,
@@ -253,8 +253,7 @@ async def cb_total_pendapatan(c, q):
     text = f"""
 <b>📊 STATISTIK PENDAPATAN</b>
 
-<blockquote>
-🧾 Total Transaksi: <b>{len(transaksi)}</b>
+<blockquote>🧾 Total Transaksi: <b>{len(transaksi)}</b>
 ✅ Total Success: <b>{total_success}</b>
 ❌ Total Cancel: <b>{total_cancel}</b>
 💰 Total Saldo: <b>Rp{total_saldo:,}</b>

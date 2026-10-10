@@ -64,7 +64,8 @@ async def cmd_help(c, m):
 
 <b>⚙️ LAINNYA</b>
 <code>/ping</code> - Cek ping dan uptime bot
-<code>/help</code> - Menampilkan bantuan ini</blockquote>
+<code>/help</code> - Menampilkan bantuan ini
+</blockquote>
 """
     await m.reply(text)
 
