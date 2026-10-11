@@ -65,7 +65,7 @@ async def auto_restart():
             logger.error(f"Failed to send restart message: {e}")
 
         logger.info("Restarting bot...")
-        os.execl(sys.executable, sys.executable, "-m", "Fsub")
+        os.execl(sys.executable, sys.executable, "-m", "Qris")
 
 async def start_task():
     global global_task
