@@ -321,18 +321,18 @@ class DatabaseClient:
     async def add_saldo_user(self, user_id, amount=0):
         await self.ensure_connection()
 
-        async with self.conn.execute(
+        amount = int(amount)
+
+        await self.conn.execute(
             """
-            INSERT INTO saldo_user (user_id, saldo)
-            VALUES (?, ?)
+            INSERT INTO saldo_user (user_id, saldo, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(user_id) DO UPDATE SET
-                saldo = saldo + excluded.saldo,
+                saldo = saldo + ?,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (user_id, amount)
-        ):
-            pass
-
+            (user_id, amount, amount)
+        )
         await self.conn.commit()
 
     async def get_saldo_user(self, user_id):

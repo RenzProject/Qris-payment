@@ -141,11 +141,11 @@ async def cb_gen_qris(c, q):
                     transaksi = await dB.get_transaksi(transaction_id)
 
                     if transaksi and transaksi["status"] != "paid":
-                        await dB.add_saldo_user(user_id, nominal)
-                        await dB.update_status_transaksi(
-                            transaction_id,
-                            "paid",
-                        )
+                        fee = await dB.get_fee_user(user_id)
+                        saldo_ditambahkan = nominal - fee
+                        await dB.add_saldo_user(user_id, saldo_ditambahkan)
+                        logger.info(f"[DEBUG] Menambahkan saldo sebesar {saldo_ditambahkan} untuk user {user_id}")
+                        await dB.update_status_transaksi(transaction_id, "paid")
 
                     await payment_msg.delete()
 

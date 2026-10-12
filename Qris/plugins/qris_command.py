@@ -125,10 +125,9 @@ async def cmd_qris(c, m):
                         if transaksi["status"] != "paid":
                             fee = await dB.get_fee_user(user_id)
                             saldo_ditambahkan = nominal - fee
+                            await dB.add_saldo_user(user_id, saldo_ditambahkan)
+                            logger.info(f"[DEBUG] Menambahkan saldo sebesar {saldo_ditambahkan} untuk user {user_id}")
 
-                            if saldo_ditambahkan < 0:
-                                logger.warning("[QRIS] Fee melebihi nominal top up")
-    
                             await dB.update_status_transaksi(transaction_id, "paid")
 
                         await payment_msg.delete()
