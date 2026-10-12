@@ -17,7 +17,7 @@ async def cb_gen_qris(c, q):
 
     if not await check_akses(user_id):
         return await q.answer(
-            "⚠️ Kamu tidak memiliki akses premium, Silahkan hubungi Owner.",
+            "⚠️ Kamu tidak memiliki akses untuk menggunakan perintah ini.",
             show_alert=True,
         )
 

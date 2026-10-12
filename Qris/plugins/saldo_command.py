@@ -45,7 +45,7 @@ async def cmd_saldo(c, m):
 
     if not await check_akses(user_id):
         return await m.reply(
-            "<b>⚠️ Kamu tidak memiliki akses premium, Silahkan hubungi Owner.</b>"
+            "<b>⚠️ Kamu tidak memiliki akses untuk menggunakan perintah ini.</b>"
         )
 
     saldo = await get_saldo_user(user_id)
@@ -96,13 +96,43 @@ async def cmd_del_saldo(c, m):
         f"<b>✅ Berhasil Mengurangi saldo user!</b>\n\n- User ID: <code>{user_id}</code>\n- Saldo sekarang: <code>Rp{saldo_str}</code>"
     )
 
+@bot.on_message(filters.command("listsaldo") & filters.private)
+async def cmd_list_saldo(c, m):
+    user_id_pengirim = m.from_user.id
+
+    if not await check_akses(user_id_pengirim):
+        return await m.reply(
+            "<b>⚠️ Kamu tidak memiliki akses untuk menggunakan perintah ini.</b>"
+        )
+
+    users = await get_all_saldo_user()
+
+    if not users:
+        return await m.reply(
+            "<b>📂 Belum ada data saldo user di database.</b>"
+        )
+
+    text_list = []
+    for idx, u in enumerate(users, start=1):
+        saldo_str = f"{u['saldo']:,}".replace(",", ".")
+        text_list.append(f"{idx}. User ID: <code>{u['user_id']}</code>\n💰 Saldo: <code>Rp{saldo_str}</code>")
+
+    daftar_user = "\n".join(text_list)
+    pesan = f"<b>📋 Daftar Saldo Semua User:</b>\n\n{daftar_user}"
+
+    if len(pesan) > 4096:
+        for x in range(0, len(pesan), 4096):
+            await m.reply(pesan[x:x+4096])
+    else:
+        await m.reply(pesan)
+
 @bot.on_message(filters.command("resetsaldo") & filters.private)
 async def cmd_resetsaldo(c, m):
     user_id = m.from_user.id
 
     if not await check_akses(user_id):
         return await m.reply(
-            "<b>⚠️ Kamu tidak memiliki akses premium, Silahkan hubungi Owner.</b>",
+            "<b>⚠️ Kamu tidak memiliki akses untuk menggunakan perintah ini.</b>",
         )
 
     await reset_saldo_user(user_id)

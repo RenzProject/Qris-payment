@@ -17,7 +17,7 @@ async def cmd_qris(c, m):
 
     if not await check_akses(user_id):
         return await m.reply(
-            "<b>⚠️ Kamu tidak memiliki akses premium, Silahkan hubungi Owner.</b>",
+            "<b>⚠️ Kamu tidak memiliki akses untuk menggunakan perintah ini.</b>",
         )
 
     if len(m.command) < 2:
