@@ -44,6 +44,14 @@ async def cb_gen_qris(c, q):
             "<b>⚠️ Minimal nominal QRIS adalah Rp1.000.</b>",   
         )
 
+    fee = await dB.get_fee_user(user_id)
+    if nominal <= fee:
+        fee_str = f"{fee:,}".replace(",", ".")
+        return await c.send_message(
+            user_id,
+            f"<b>⚠️ Nominal QRIS terlalu kecil!</b>\n\nNominal harus lebih besar dari fee kamu yaitu <b>Rp{fee_str}</b>."
+        )
+
     temp_msg = await c.send_message(
         user_id,
         "<b>⏳ Sedang membuat QRIS dinamis...</b>",
@@ -120,7 +128,7 @@ async def cb_gen_qris(c, q):
             caption=msg,
         )
 
-        for _ in range(120):
+        for _ in range(720):
             await asyncio.sleep(5)
 
             try:
@@ -141,10 +149,8 @@ async def cb_gen_qris(c, q):
                     transaksi = await dB.get_transaksi(transaction_id)
 
                     if transaksi and transaksi["status"] != "paid":
-                        fee = await dB.get_fee_user(user_id)
                         saldo_ditambahkan = nominal - fee
                         await dB.add_saldo_user(user_id, saldo_ditambahkan)
-                        logger.info(f"[DEBUG] Menambahkan saldo sebesar {saldo_ditambahkan} untuk user {user_id}")
                         await dB.update_status_transaksi(transaction_id, "paid")
 
                     await payment_msg.delete()
