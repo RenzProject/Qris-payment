@@ -1,8 +1,6 @@
 import importlib
 from sys import version as pyver
 import asyncio
-import os
-import sys
 from datetime import datetime
 from pathlib import Path
 import traceback
@@ -20,7 +18,7 @@ global_task = []
 
 async def auto_backup():
     tz = timezone("Asia/Jakarta")
-    cron = croniter("30 1 * * *", datetime.now(tz))
+    cron = croniter("0 0 * * *", datetime.now(tz))
     while True:
         next_run = cron.get_next(datetime)
         wait_time = (next_run - datetime.now(tz)).total_seconds()
@@ -50,27 +48,10 @@ async def auto_backup():
             logger.error(f"❌ Gagal melakukan auto-backup database: {e}")
             continue
 
-async def auto_restart():
-    tz = timezone("Asia/Jakarta")
-    cron = croniter("0 0 * * *", datetime.now(tz))
-    while True:
-        next_run = cron.get_next(datetime)
-        wait_time = (next_run - datetime.now(tz)).total_seconds()
-        logger.info(f"Scheduled restart in {wait_time} seconds.")
-        await asyncio.sleep(wait_time)
-
-        try:
-            await bot.send_message(OWNER_ID, "<blockquote><b>Restart Daily..\n\nTunggu beberapa menit bot sedang di Restart!!</b></blockquote>")
-        except Exception as e:
-            logger.error(f"Failed to send restart message: {e}")
-
-        logger.info("Restarting bot...")
-        os.execl(sys.executable, sys.executable, "-m", "Qris")
-
 async def start_task():
     global global_task
 
-    background_tasks = [auto_restart(), auto_backup()]
+    background_tasks = [auto_backup()]
     for task in background_tasks:
         t = asyncio.create_task(task)
         global_task.append(t)
