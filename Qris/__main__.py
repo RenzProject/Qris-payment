@@ -70,7 +70,7 @@ async def start_bots():
         msg = """
 **Berhasil Di Aktifkan**
 **Python Version** `{}`
-**hydrogram Version** `{}`
+**Hydrogram Version** `{}`
         """
         await bot.send_message(OWNER_ID, msg.format(pyver.split()[0], hydrover))
         logger.info(f"Pesan berhasil dikirim ke {OWNER_ID}")
