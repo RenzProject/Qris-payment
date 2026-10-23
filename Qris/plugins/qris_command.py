@@ -1,5 +1,7 @@
 import asyncio
 import qrcode
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from io import BytesIO
 from hydrogram import filters
 from hydrogram.enums import ParseMode
@@ -126,6 +128,8 @@ async def cmd_qris(c, m):
                     status = check["data"]["status"]
 
                     if status == "paid":
+                        tanggal_bayar = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%d-%m-%Y %H:%M:%S WIB")
+                            
                         transaksi = await dB.get_transaksi(transaction_id)
 
                         if transaksi["status"] != "paid":
@@ -141,9 +145,8 @@ async def cmd_qris(c, m):
 <b>🔔 Pembayaran Berhasil!</b>
 
 <b>Detail Transaksi:</b>
-• ID : <code>{transaction_id}</code>
 • Total Bayar : Rp{total_amount:,}
-• Saldo Ditambahkan : Rp{nominal:,}
+• Tanggal Bayar : {tanggal_bayar}
 • Status : ✅ {status}
 
 <blockquote>Terima kasih telah melakukan pembayaran.</blockquote>
@@ -166,7 +169,6 @@ async def cmd_qris(c, m):
 <b>{title}</b>
 
 <b>Detail Transaksi:</b>
-• ID : <code>{transaction_id}</code>
 • Nominal : Rp{nominal:,}
 • Status : <code>{status}</code>
 
