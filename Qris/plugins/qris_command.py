@@ -95,10 +95,8 @@ async def cmd_qris(c, m):
 <b>💳 Pembayaran QRIS Berhasil Dibuat</b>
 
 <b>Detail Pembayaran:</b>
-• ID : <code>{transaction_id}</code>
 • Nominal : Rp{nominal:,}
 • Total Bayar : Rp{total_amount:,}
-• Status : ⏳ pending
 • Expired : 60 menit
 
 <b>Silakan scan QRIS di atas untuk melakukan pembayaran.</b>
