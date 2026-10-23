@@ -146,7 +146,7 @@ async def cmd_qris(c, m):
 • Saldo Ditambahkan : Rp{nominal:,}
 • Status : ✅ {status}
 
-<blockquote>Terima kasih telah melakukan pembayaran. Saldo kamu berhasil ditambahkan.</blockquote>
+<blockquote>Terima kasih telah melakukan pembayaran.</blockquote>
 """.replace(",", ".")
 
                         await c.send_message(user_id, msg_paid)
