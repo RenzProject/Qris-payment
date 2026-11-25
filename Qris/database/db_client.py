@@ -1,3 +1,4 @@
+import asyncio
 
 import aiosqlite
 import aioshutil
@@ -27,12 +28,14 @@ class DatabaseClient:
         self.db_backup_format = "zip"
         self.temp_dir = TEMP_DIR
         self.conn = None
+        self.write_lock = asyncio.Lock()
 
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     async def initialize(self):
         await self.connect()
         await self._initialize_database()
+        await self._migrate_database()
 
     async def connect(self):
         if self.conn is not None:
@@ -73,6 +76,9 @@ class DatabaseClient:
             transaction_id TEXT NOT NULL UNIQUE,
             user_id INTEGER NOT NULL,
             amount INTEGER NOT NULL,
+            fee INTEGER NOT NULL DEFAULT 0,
+            total_amount INTEGER NOT NULL DEFAULT 0,
+            message_id INTEGER,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -96,6 +102,24 @@ class DatabaseClient:
         await self.conn.commit()
 
         logger.info("Database schema initialized")
+
+    async def _migrate_database(self):
+        """Tambah kolom baru ke tabel transaksi lama (aman dijalankan berulang)."""
+        async with self.conn.execute("PRAGMA table_info(transaksi)") as cursor:
+            columns = {row["name"] async for row in cursor}
+
+        migrations = {
+            "fee": "ALTER TABLE transaksi ADD COLUMN fee INTEGER NOT NULL DEFAULT 0",
+            "total_amount": "ALTER TABLE transaksi ADD COLUMN total_amount INTEGER NOT NULL DEFAULT 0",
+            "message_id": "ALTER TABLE transaksi ADD COLUMN message_id INTEGER",
+        }
+
+        for name, sql in migrations.items():
+            if name not in columns:
+                await self.conn.execute(sql)
+                logger.info(f"Migrasi: kolom transaksi.{name} ditambahkan")
+
+        await self.conn.commit()
 
     async def ensure_connection(self):
         if self.conn is None:
@@ -208,19 +232,27 @@ class DatabaseClient:
         await self.conn.commit()
 
     # TRANSAKSI MANAGEMENT
-    async def add_transaksi(self, transaction_id, user_id, amount):
+    async def add_transaksi(
+        self,
+        transaction_id,
+        user_id,
+        amount,
+        fee=0,
+        total_amount=0,
+        message_id=None,
+    ):
         await self.ensure_connection()
 
-        async with self.conn.cursor() as cursor:
-            await cursor.execute(
+        async with self.write_lock:
+            await self.conn.execute(
                 """
-                INSERT INTO transaksi (transaction_id, user_id, amount, status)
-                VALUES (?, ?, ?, 'pending')
+                INSERT INTO transaksi
+                    (transaction_id, user_id, amount, fee, total_amount, message_id, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending')
                 """,
-                (transaction_id, user_id, amount)
+                (transaction_id, user_id, amount, fee, total_amount, message_id)
             )
-
-        await self.conn.commit()
+            await self.conn.commit()
 
     async def get_transaksi(self, transaction_id):
         await self.ensure_connection()
@@ -235,14 +267,56 @@ class DatabaseClient:
 
             return await cursor.fetchone()
 
-    async def get_transaksi_user_id(self, user_id):
+    async def get_pending_transaksi(self, max_age_hours=24):
+        """Semua transaksi pending (maks umur 24 jam) untuk dicek worker."""
         await self.ensure_connection()
         transaksi = []
 
         async with self.conn.execute(
-            "SELECT * FROM transaksi WHERE user_id = ? ORDER BY id DESC",
-            (user_id,)
+            """
+            SELECT * FROM transaksi
+            WHERE status = 'pending'
+              AND created_at >= datetime('now', ?)
+            ORDER BY id ASC
+            """,
+            (f"-{int(max_age_hours)} hours",)
         ) as cursor:
+            async for row in cursor:
+                transaksi.append(dict(row))
+
+        return transaksi
+
+    async def expire_transaksi_lama(self, max_age_hours=24):
+        """Pending yang sudah terlalu lama ditutup diam-diam (tanpa notif)."""
+        await self.ensure_connection()
+
+        async with self.write_lock:
+            cursor = await self.conn.execute(
+                """
+                UPDATE transaksi
+                SET status = 'expired',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE status = 'pending'
+                  AND created_at < datetime('now', ?)
+                """,
+                (f"-{int(max_age_hours)} hours",)
+            )
+            await self.conn.commit()
+
+            return cursor.rowcount
+    
+    async def get_transaksi_user_id(self, user_id, limit=None):
+        await self.ensure_connection()
+        transaksi = []
+
+        query = "SELECT * FROM transaksi WHERE user_id = ? ORDER BY id DESC"
+        params = [user_id]
+
+        if limit:
+            query += " LIMIT ?"
+            params.append(int(limit))
+
+        async with self.conn.execute(query, params) as cursor:
             async for row in cursor:
                 transaksi.append({
                     "id": row["id"],
@@ -275,21 +349,75 @@ class DatabaseClient:
 
         return transaksi
 
-    async def update_status_transaksi(self, transaction_id, status):
+    async def update_status_transaksi(self, transaction_id, status, only_if=None):
+        """
+        Update status transaksi.
+        Kalau only_if diisi (mis. "pending"), update hanya jalan jika status lama sama.
+        Return True kalau ada baris yang berubah.
+        """
         await self.ensure_connection()
 
-        async with self.conn.cursor() as cursor:
-            await cursor.execute(
-                """
-                UPDATE transaksi
-                SET status = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE transaction_id = ?
-                """,
-                (status, transaction_id)
-            )
+        query = """
+            UPDATE transaksi
+            SET status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE transaction_id = ?
+        """
+        params = [status, transaction_id]
 
-        await self.conn.commit()
+        if only_if is not None:
+            query += " AND status = ?"
+            params.append(only_if)
+
+        async with self.write_lock:
+            cursor = await self.conn.execute(query, params)
+            await self.conn.commit()
+
+            return cursor.rowcount > 0
+
+    async def settle_paid_transaksi(self, transaction_id, user_id, saldo_ditambahkan):
+        """
+        Tandai paid + tambah saldo dalam 1 transaksi DB (atomik).
+        Return True hanya kalau transaksi ini memang baru berubah dari pending ke paid,
+        jadi saldo tidak akan pernah dobel.
+        """
+        await self.ensure_connection()
+
+        saldo_ditambahkan = int(saldo_ditambahkan)
+
+        async with self.write_lock:
+            try:
+                cursor = await self.conn.execute(
+                    """
+                    UPDATE transaksi
+                    SET status = 'paid',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE transaction_id = ? AND status = 'pending'
+                    """,
+                    (transaction_id,)
+                )
+
+                if cursor.rowcount == 0:
+                    await self.conn.rollback()
+                    return False
+
+                await self.conn.execute(
+                    """
+                    INSERT INTO saldo_user (user_id, saldo, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        saldo = saldo + ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (user_id, saldo_ditambahkan, saldo_ditambahkan)
+                )
+
+                await self.conn.commit()
+                return True
+
+            except Exception:
+                await self.conn.rollback()
+                raise
 
     async def remove_transaksi_user_id(self, user_id):
         await self.ensure_connection()

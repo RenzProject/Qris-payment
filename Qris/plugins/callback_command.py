@@ -4,12 +4,14 @@ from io import BytesIO
 from hydrogram import filters
 from Qris import logger
 from Qris.utils import Rz, BUTTON, TEXT
-from Qris.config import LICENSE_KEY_CASAKU, ID_QRIS
+from Qris.config import (
+    CHECK_STATUS_URL,
+    GENERATE_URL,
+    ID_QRIS,
+    LICENSE_KEY_CASAKU,
+)
 from Qris.utils import post
 from Qris.database import *
-
-GENERATE_URL = "https://api.casaku.id/api/generate/v2/qris"
-CHECK_STATUS_URL = "https://api.casaku.id/api/generate/check-status"
 
 @Rz.callback(r"^gen_qris")
 async def cb_gen_qris(c, q):
@@ -41,7 +43,7 @@ async def cb_gen_qris(c, q):
     if nominal < 1000:
         return await c.send_message(
             user_id,
-            "<b>⚠️ Minimal nominal QRIS adalah Rp1.000.</b>",   
+            "<b>⚠️ Minimal nominal QRIS adalah Rp1.000.</b>",
         )
 
     fee = await dB.get_fee_user(user_id)
@@ -84,7 +86,6 @@ async def cb_gen_qris(c, q):
         if data.get("status") != 200:
             return await temp_msg.edit_text(
                 "<b>❌ Gagal membuat pembayaran QRIS.</b>",
-                
             )
 
         logger.info(f"[QRIS] Response API: {data}")
@@ -93,12 +94,6 @@ async def cb_gen_qris(c, q):
         qr_string = result["qr_string"]
         transaction_id = result["transactionId"]
         total_amount = result["totalAmount"]
-
-        await dB.add_transaksi(
-            transaction_id,
-            user_id,
-            nominal,
-        )
 
         qr = qrcode.make(qr_string)
 
@@ -128,77 +123,14 @@ async def cb_gen_qris(c, q):
             caption=msg,
         )
 
-        for _ in range(720):
-            await asyncio.sleep(5)
-
-            try:
-                check = await post(
-                    CHECK_STATUS_URL,
-                    json={"transactionId": transaction_id},
-                    headers=headers,
-                )
-
-                logger.info(f"[QRIS] Check Status: {check}")
-
-                if check.get("status") != 200:
-                    continue
-
-                status = check["data"]["status"]
-
-                if status == "paid":
-                    transaksi = await dB.get_transaksi(transaction_id)
-
-                    if transaksi and transaksi["status"] != "paid":
-                        saldo_ditambahkan = nominal - fee
-                        await dB.add_saldo_user(user_id, saldo_ditambahkan)
-                        await dB.update_status_transaksi(transaction_id, "paid")
-
-                    await payment_msg.delete()
-
-                    msg_paid = f"""
-<b>🔔 Pembayaran Berhasil!</b>
-
-<b>Detail Transaksi:</b>
-• ID: <code>{transaction_id}</code>
-• Total Bayar: Rp{total_amount:,}
-• Saldo Ditambahkan: Rp{nominal:,}
-• Status: ✅ paid
-
-<blockquote>Terima kasih telah melakukan pembayaran. Saldo kamu berhasil ditambahkan.</blockquote>
-""".replace(",", ".")
-
-                    await c.send_message(user_id, msg_paid)
-                    break
-
-                elif status in ("cancel", "expired"):
-                    await dB.update_status_transaksi(transaction_id,status)
-
-                    await payment_msg.delete()
-
-                    if status == "cancel":
-                        title = "❌ Pembayaran QRIS Dibatalkan"
-                    else:
-                        title = "⌛ Pembayaran QRIS Kedaluwarsa"
-
-                    msg_status = f"""
-<b>{title}</b>
-
-<b>Detail Transaksi:</b>
-• ID: <code>{transaction_id}</code>
-• Nominal: Rp{nominal:,}
-• Status: <code>{status}</code>
-
-Saldo kamu tidak ditambahkan.
-""".replace(",", ".")
-
-                    await c.send_message(user_id, msg_status)
-                    break
-
-            except Exception as e:
-                logger.info(f"[QRIS] Error Check Status: {e}")
-
-        else:
-            await payment_msg.delete()
+        await dB.add_transaksi(
+            transaction_id,
+            user_id,
+            nominal,
+            fee=fee,
+            total_amount=total_amount,
+            message_id=payment_msg.id,
+        )
 
     except Exception as e:
         logger.info(f"[QRIS] Error Generate: {e}")
@@ -213,8 +145,8 @@ Saldo kamu tidak ditambahkan.
 @Rz.callback(r"^history")
 async def cb_history(c, q):
     user_id = q.from_user.id
-    
-    transactions = await get_transaksi_user_id(user_id)
+
+    transactions = await get_transaksi_user_id(user_id, limit=10)
 
     if not transactions:
         text = """
@@ -227,7 +159,7 @@ Kamu belum memiliki riwayat transaksi.
             reply_markup=BUTTON.back_to_start(),
         )
 
-    msg = "<b>📜 RIWAYAT TRANSAKSI</b>\n\n"
+    msg = "<b>📜 RIWAYAT TRANSAKSI</b>\n<i>10 transaksi terbaru</i>\n\n"
 
     for idx, trx in enumerate(transactions, start=1):
         status = trx["status"].upper()
@@ -238,7 +170,7 @@ Kamu belum memiliki riwayat transaksi.
 💰 Nominal: <b>Rp{trx['amount']:,}</b>
 📅 Tanggal: <code>{trx['updated_at']}</code>
 </blockquote>\n
-"""
+""".replace(",", ".")
 
     await q.edit_message_text(
         text=msg,

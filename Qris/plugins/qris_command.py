@@ -1,17 +1,15 @@
-import asyncio
 import qrcode
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from io import BytesIO
 from hydrogram import filters
 from hydrogram.enums import ParseMode
 from Qris import bot, logger
 from Qris.utils import post
-from Qris.config import LICENSE_KEY_CASAKU, ID_QRIS
+from Qris.config import (
+    GENERATE_URL,
+    ID_QRIS,
+    LICENSE_KEY_CASAKU,
+)
 from Qris.database import *
-
-GENERATE_URL = "https://api.casaku.id/api/generate/v2/qris"
-CHECK_STATUS_URL = "https://api.casaku.id/api/generate/check-status"
 
 @bot.on_message(filters.command("qris") & filters.private)
 async def cmd_qris(c, m):
@@ -83,8 +81,6 @@ async def cmd_qris(c, m):
         transaction_id = result["transactionId"]
         total_amount = result["totalAmount"]
 
-        await dB.add_transaksi(transaction_id, user_id, nominal)
-
         qr = qrcode.make(qr_string)
 
         buffer = BytesIO()
@@ -112,77 +108,20 @@ async def cmd_qris(c, m):
             caption=msg,
         )
 
-        for _ in range(720):
-            await asyncio.sleep(5)
-
-            try:
-                check_payload = {
-                    "transactionId": transaction_id,
-                }
-
-                check = await post(CHECK_STATUS_URL, json=check_payload, headers=headers)
-
-                logger.info(f"[QRIS] Check Status: {check}")
-
-                if check.get("status") == 200:
-                    status = check["data"]["status"]
-
-                    if status == "paid":
-                        tanggal_bayar = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%d-%m-%Y %H:%M:%S WIB")
-                            
-                        transaksi = await dB.get_transaksi(transaction_id)
-
-                        if transaksi["status"] != "paid":
-                            saldo_ditambahkan = nominal - fee
-                            await dB.add_saldo_user(user_id, saldo_ditambahkan)
-                            logger.info(f"[DEBUG] Menambahkan saldo sebesar {saldo_ditambahkan} untuk user {user_id}")
-
-                            await dB.update_status_transaksi(transaction_id, "paid")
-
-                        await payment_msg.delete()
-
-                        msg_paid = f"""
-<b>🔔 Pembayaran Berhasil!</b>
-
-<b>Detail Transaksi:</b>
-• Total Bayar : Rp{total_amount:,}
-• Tanggal Bayar : {tanggal_bayar}
-• Status : ✅ {status}
-
-<blockquote>Terima kasih telah melakukan pembayaran.</blockquote>
-""".replace(",", ".")
-
-                        await c.send_message(user_id, msg_paid)
-                        break
-
-                    elif status in ("cancel", "expired"):
-                        await dB.update_status_transaksi(transaction_id, status,)
-
-                        await payment_msg.delete()
-
-                        if status == "cancel":
-                            title = "❌ Pembayaran QRIS Dibatalkan"
-                        else:
-                            title = "⌛ Pembayaran QRIS Kedaluwarsa"
-
-                        msg_status = f"""
-<b>{title}</b>
-
-<b>Detail Transaksi:</b>
-• Nominal : Rp{nominal:,}
-• Status : <code>{status}</code>
-
-Saldo kamu tidak ditambahkan.
-""".replace(",", ".")
-
-                        await c.send_message(user_id, msg_status)
-                        break
-
-            except Exception as e:
-                logger.info(f"[QRIS] Error Check Status: {e}")
+        await dB.add_transaksi(
+            transaction_id,
+            user_id,
+            nominal,
+            fee=fee,
+            total_amount=total_amount,
+            message_id=payment_msg.id,
+        )
 
     except Exception as e:
         logger.info(f"[QRIS] Error Generate: {e}")
-        await temp_msg.edit_text(
-            "<b>❌ Terjadi kesalahan saat membuat pembayaran QRIS.</b>",
-        )
+        try:
+            await temp_msg.edit_text(
+                "<b>❌ Terjadi kesalahan saat membuat pembayaran QRIS.</b>",
+            )
+        except Exception:
+            pass

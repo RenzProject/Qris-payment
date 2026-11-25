@@ -12,6 +12,7 @@ from Qris import LOOP, bot
 from Qris.config import OWNER_ID
 from Qris.logger import logger
 from Qris.plugins import loadModule
+from Qris.plugins.qris_worker import start_qris
 from Qris.database import *
 
 global_task = []
@@ -60,6 +61,7 @@ async def start_task():
 async def start_bots():
     await dB.initialize()
     await bot.start()
+    await start_qris(bot)
 
     for mod in loadModule():
         importlib.import_module(f"Qris.plugins.{mod}")
