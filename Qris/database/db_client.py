@@ -102,6 +102,10 @@ class DatabaseClient:
 
         logger.info("Database schema initialized")
 
+    async def ensure_connection(self):
+        if self.conn is None:
+            await self.connect()
+
     # AKSES MANAGEMENT
     async def add_akses(self, user_id):
         await self.ensure_connection()
