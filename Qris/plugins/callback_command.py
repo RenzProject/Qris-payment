@@ -88,8 +88,6 @@ async def cb_gen_qris(c, q):
                 "<b>❌ Gagal membuat pembayaran QRIS.</b>",
             )
 
-        logger.info(f"[QRIS] Response API: {data}")
-
         result = data["data"]
         qr_string = result["qr_string"]
         transaction_id = result["transactionId"]

@@ -74,8 +74,6 @@ async def cmd_qris(c, m):
                 "<b>❌ Gagal membuat pembayaran Qris.</b>",
             )
 
-        logger.info(f"[QRIS] Response API: {data}")
-
         result = data["data"]
         qr_string = result["qr_string"]
         transaction_id = result["transactionId"]

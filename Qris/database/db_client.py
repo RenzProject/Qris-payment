@@ -35,8 +35,7 @@ class DatabaseClient:
     async def initialize(self):
         await self.connect()
         await self._initialize_database()
-        await self._migrate_database()
-
+        
     async def connect(self):
         if self.conn is not None:
             return
@@ -102,28 +101,6 @@ class DatabaseClient:
         await self.conn.commit()
 
         logger.info("Database schema initialized")
-
-    async def _migrate_database(self):
-        """Tambah kolom baru ke tabel transaksi lama (aman dijalankan berulang)."""
-        async with self.conn.execute("PRAGMA table_info(transaksi)") as cursor:
-            columns = {row["name"] async for row in cursor}
-
-        migrations = {
-            "fee": "ALTER TABLE transaksi ADD COLUMN fee INTEGER NOT NULL DEFAULT 0",
-            "total_amount": "ALTER TABLE transaksi ADD COLUMN total_amount INTEGER NOT NULL DEFAULT 0",
-            "message_id": "ALTER TABLE transaksi ADD COLUMN message_id INTEGER",
-        }
-
-        for name, sql in migrations.items():
-            if name not in columns:
-                await self.conn.execute(sql)
-                logger.info(f"Migrasi: kolom transaksi.{name} ditambahkan")
-
-        await self.conn.commit()
-
-    async def ensure_connection(self):
-        if self.conn is None:
-            await self.connect()
 
     # AKSES MANAGEMENT
     async def add_akses(self, user_id):
